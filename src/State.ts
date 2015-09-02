@@ -49,7 +49,27 @@ export class State
 		}
 	}
 	
-	public addRegion(targetPath: string[], name: string, options: StateMachineConfig)
+	
+	public enter(transitionPath: string[], args: any[])
+	{
+		this._onEnter((transitionPath || []).join(":"), args);
+		
+		// enter in regions
+		for (var region in this._regions)
+		{
+			this._regions[region]._init(args);
+		}
+	}
+	
+	public exit(args: any[]): any[]
+	{
+		return this._onExit(args);
+	}
+	
+	/// -------------------------------------------
+	/// Internal methods
+	/// -------------------------------------------
+	public _addRegion(targetPath: string[], name: string, options: StateMachineConfig)
 	{
 		if (targetPath.length == 0)
 		{
@@ -61,7 +81,7 @@ export class State
 		}
 	}
 	
-	public getTransition(transitionPath: string[], args: any[]) : Transition
+	public _hasTransition(transitionPath: string[], args: any[]) : boolean
 	{
 		if (transitionPath.length == 1)
 		{
@@ -69,58 +89,53 @@ export class State
 			{
 				if (transition.canExecute(args))
 				{
-					return transition;
+					return true;
 				}
-			}
-			
-			return null;
-		}
-		else
-		{
-			return null;
-		}
-	}
-	
-	public enter(transitionPath: string[], args: any[])
-	{
-		this._onEnter((transitionPath || []).join(":"), args);
-		
-		// enter in regions
-		for (var region in this._regions)
-		{
-			this._regions[region].init(args);
-		}
-	}
-	
-	public exit(args: any[]): any[]
-	{
-		return this._onExit(args);
-	}
-	
-	public handleTransitions(transitionPath: string[], targetsPath: string[][], args: any[])
-	{		
-		for (var targetPath of targetsPath) // should be length == 1 if parent Machine
-		{
-			this.handleTransition(transitionPath, targetPath, args);
-		}
-	}
-	
-	public handleTransition(transitionPath: string[], targetPath: string[], args: any[]): boolean
-	{		
-		if (targetPath.length == 1)
-		{
-			return this._parent.handleTransition(transitionPath, targetPath.slice(1), args);
-		}
-		else
-		{
-			// look in regions
-			var region = this._regions[targetPath[0]];
-			if (region)
-			{
-				return region.handleTransition(transitionPath, targetPath.slice(1), args);
 			}
 			
 			return false;
 		}
+		else
+		{
+			var region = this._regions[transitionPath[0]];
+			return region != null && region._hasTransition(transitionPath.slice(1), args);
+		}
+	}
+	
+	public _trigger(transitionPath: string[], args: any[]): Transition[]
+	{
+		if (transitionPath.length == 1)
+		{
+			for (var transition of this._transitions.filter(t => t.trigger == transitionPath[0]))
+			{
+				if (transition.canExecute(args))
+				{
+					return [transition];
+				}
+			}
+			
+			return [];
+		}
+		else
+		{
+			var region = this._regions[transitionPath[0]];
+			if (region)
+			{
+				return region._trigger(transitionPath.slice(1), args);
+			}
+			
+			return [];
+		}
+	}
+	
+	public _handleTransition(transitionPath: string[], targetPath: string[], args: any[]): boolean
+	{
+		var region = this._regions[targetPath[0]];
+		if (region && targetPath.length > 1)
+		{
+			return region._handleTransition(transitionPath, targetPath.slice(1), args);
+		}
+		
+		return this._parent._handleTransition(transitionPath, targetPath, args);
 	}
 }

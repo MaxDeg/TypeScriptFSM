@@ -13,6 +13,6 @@ export class FinitStateMachine extends StateMachine
 	{
 		super(null, options);
 		
-		this.init();
+		this._init();
 	}
 }

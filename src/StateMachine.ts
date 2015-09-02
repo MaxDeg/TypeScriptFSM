@@ -1,4 +1,5 @@
 import { StateConfig, State } from "State";
+import { Transition } from "Transition";
 
 export interface StateMachineConfig
 {
@@ -9,6 +10,7 @@ export interface StateMachineConfig
 export class StateMachine
 {
 	private _parent: State;
+	private _initialState: string;
 	private _currentState: State;
 	private _states: { [key: string]: State };
 	
@@ -24,17 +26,13 @@ export class StateMachine
 			this._states[stateName] = new State(this, stateName, options[stateName]);
 		}
 		
-		this._currentState = this._states[options.initialState || ""];
+		this._initialState = options.initialState;
+		this._currentState = null;
 	}
 	
-	public init(args?: any[])
-	{
-		if (this._currentState)
-		{
-			this._currentState.enter(null, args || []);
-		}
-	}
-	
+	/// -------------------------------------------
+	/// Public methods
+	/// -------------------------------------------
 	public addRegion(target: string, name: string, options: StateMachineConfig)
 	{
 		this._addRegion(target.split(":"), name, options)
@@ -49,59 +47,67 @@ export class StateMachine
 	
 	public canTrigger(transition: string, ...args: any[]): boolean
 	{
-		return this._canTrigger(transition.split(":"), args);
+		return this._hasTransition(transition.split(":"), args);
 	}
 	
 	public trigger(transition: string, ...args: any[]): void
 	{
-		return this._trigger(transition.split(":"), args);
+		this._trigger(transition.split(":"), args);
 	}
 	
-	public handleTransitions(transitionPath: string[], targets: string[][], args: any[])
-	{		
-		for (var targetPath of targets) // should be length == 1 if parent Machine
+	/// -------------------------------------------
+	/// Internal methods
+	/// -------------------------------------------
+	public _init(args?: any[])
+	{
+		if (this._initialState)
 		{
-			this.handleTransition(transitionPath, targetPath, args);
+			this._currentState = this._states[this._initialState];
+			this._currentState.enter(null, args || []);
 		}
 	}
 	
-	public handleTransition(transitionPath: string[], targetPath: string[], args: any[]): boolean
+	public _addRegion(targetPath: string[], name: string, options: StateMachineConfig)
+	{
+		this._states[targetPath[0]]._addRegion(targetPath.slice(1), name, options);
+	}
+	
+	public _hasTransition(transitionPath: string[], args: any[]) : boolean
+	{
+		return this._currentState != null && this._currentState._hasTransition(transitionPath, args);
+	}
+		
+	public _handleTransition(transitionPath: string[], targetPath: string[], args: any[]): boolean
 	{		
 		var newState = this._states[targetPath[0]];
 		if (newState)
 		{
+			var exitArgs = this._currentState ? this._currentState.exit(args) : null;
+			
 			this._currentState = newState;
-			this._currentState.enter(transitionPath, args);
+			this._currentState.enter(transitionPath, exitArgs || args);
 			
 			if (targetPath.length > 1)
 			{
-				return this._currentState.handleTransition(transitionPath, targetPath.slice(1), args);
+				return this._currentState._handleTransition(transitionPath, targetPath.slice(1), args);
 			}
 			
 			return true;
 		}
-		else
-		{
-			return this._parent.handleTransition(transitionPath, targetPath.slice(1), args);
+		
+		return this._parent != null && this._parent._handleTransition(transitionPath, targetPath, args);
+	}
+		
+	public _trigger(transitionPath: string[], args: any[]): Transition[]
+	{
+		for (var transition of this._currentState._trigger(transitionPath, args))
+		{			
+			for (var targetPath of transition.execute(args)) 
+			{
+				this._currentState._handleTransition(transitionPath, targetPath, args);
+			}
 		}
-	}
 		
-	public _addRegion(targetPath: string[], name: string, options: StateMachineConfig)
-	{
-		this._states[targetPath[0]].addRegion(targetPath.slice(1), name, options);
-	}
-	
-	private _canTrigger(transitionPath: string[], args: any[]): boolean
-	{
-		return this._currentState.getTransition(transitionPath, args) != null;
-	}
-	
-	private _trigger(transitionPath: string[], args: any[]): void
-	{
-		var transition = this._currentState.getTransition(transitionPath, args);
-		if (transition == null) return; // Transition not found
-		
-		var exitArgs = this._currentState.exit(args);				
-		this.handleTransitions(transitionPath, transition.execute(args), exitArgs || args);
+		return [];
 	}
 }
