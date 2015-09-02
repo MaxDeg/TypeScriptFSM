@@ -18,6 +18,8 @@ export class State
 	private _transitions: Transition[];
 	private _regions: { [key: string]: StateMachine }
 	
+	public get name() { return this._name; }
+	
 	constructor(
 		parent: StateMachine,
 		name: string,
@@ -47,9 +49,16 @@ export class State
 		}
 	}
 	
-	public addRegion(name: string, options: StateMachineConfig)
+	public addRegion(targetPath: string[], name: string, options: StateMachineConfig)
 	{
-		this._regions[name] = new StateMachine(this, options);
+		if (targetPath.length == 0)
+		{
+			this._regions[name] = new StateMachine(this, options);
+		}
+		else
+		{
+			this._regions[targetPath[0]]._addRegion(targetPath.slice(1), name, options);
+		}
 	}
 	
 	public getTransition(transitionPath: string[], args: any[]) : Transition
@@ -100,7 +109,7 @@ export class State
 	{		
 		if (targetPath.length == 1)
 		{
-			return this._parent.handleTransition(transitionPath, targetPath, args);
+			return this._parent.handleTransition(transitionPath, targetPath.slice(1), args);
 		}
 		else
 		{
@@ -108,7 +117,7 @@ export class State
 			var region = this._regions[targetPath[0]];
 			if (region)
 			{
-				return region.handleTransition(transitionPath, targetPath, args);
+				return region.handleTransition(transitionPath, targetPath.slice(1), args);
 			}
 			
 			return false;

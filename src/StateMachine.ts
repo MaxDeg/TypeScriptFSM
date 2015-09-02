@@ -35,6 +35,18 @@ export class StateMachine
 		}
 	}
 	
+	public addRegion(target: string, name: string, options: StateMachineConfig)
+	{
+		this._addRegion(target.split(":"), name, options)
+	}
+	
+	public isInState(stateName: string)
+	{
+		var statePath = stateName.split(":");
+
+		return this._currentState.name == statePath[0];
+	}
+	
 	public canTrigger(transition: string, ...args: any[]): boolean
 	{
 		return this._canTrigger(transition.split(":"), args);
@@ -70,10 +82,15 @@ export class StateMachine
 		}
 		else
 		{
-			return this._parent.handleTransition(transitionPath, targetPath, args);
+			return this._parent.handleTransition(transitionPath, targetPath.slice(1), args);
 		}
 	}
 		
+	public _addRegion(targetPath: string[], name: string, options: StateMachineConfig)
+	{
+		this._states[targetPath[0]].addRegion(targetPath.slice(1), name, options);
+	}
+	
 	private _canTrigger(transitionPath: string[], args: any[]): boolean
 	{
 		return this._currentState.getTransition(transitionPath, args) != null;
@@ -84,9 +101,7 @@ export class StateMachine
 		var transition = this._currentState.getTransition(transitionPath, args);
 		if (transition == null) return; // Transition not found
 		
-		var oldState = this._currentState;
-		var exitArgs = this._currentState.exit(args);
-				
+		var exitArgs = this._currentState.exit(args);				
 		this.handleTransitions(transitionPath, transition.execute(args), exitArgs || args);
 	}
 }
