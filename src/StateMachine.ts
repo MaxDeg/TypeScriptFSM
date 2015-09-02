@@ -15,6 +15,7 @@ export class StateMachine
 	constructor(parent: State, options: StateMachineConfig)
 	{
 		this._parent = parent;
+		this._states = {};
 		
 		for (var stateName in (options || {}))
 		{
