@@ -45,20 +45,24 @@ export class Transition
 	
 	private static createTargetDelegate(target: string|string[]|((args: any[]) => string|string[]))
 	{
-		if (typeof target === "string")
+		if (!target)
 		{
-			return () => [target];
+			return () => [];
+		}
+		else if (typeof target === "string")
+		{
+			return () => [target.split(":")];
 		}
 		else if (target instanceof Array)
 		{
-			return () => target;
+			return () => target.map(t => t.split(":"));
 		}
 		else
 		{
 			return (args: any[]) => 
 			{
 				var result = (<(args: any[]) => string|string[]>target).apply(this, args);
-				return typeof result === "string" ? [result] : result;
+				return typeof result === "string" ? [result.split(":")] : result.map(t => t.split(":"));
 			};
 		}
 	}

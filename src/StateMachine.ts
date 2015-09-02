@@ -31,7 +31,7 @@ export class StateMachine
 	{
 		if (this._currentState)
 		{
-			this._currentState.enter(args || []);
+			this._currentState.enter(null, args || []);
 		}
 	}
 	
@@ -45,32 +45,32 @@ export class StateMachine
 		return this._trigger(transition.split(":"), args);
 	}
 	
-	public handleTransitions(transitions: string[][], args: any[])
+	public handleTransitions(transitionPath: string[], targets: string[][], args: any[])
 	{		
-		for (var transitionPath of transitions) // should be length == 1 if parent Machine
+		for (var targetPath of targets) // should be length == 1 if parent Machine
 		{
-			this.handleTransition(transitionPath, args);
+			this.handleTransition(transitionPath, targetPath, args);
 		}
 	}
 	
-	public handleTransition(transitionPath: string[], args: any[]): boolean
+	public handleTransition(transitionPath: string[], targetPath: string[], args: any[]): boolean
 	{		
-		var newState = this._states[transitionPath[0]];
+		var newState = this._states[targetPath[0]];
 		if (newState)
 		{
 			this._currentState = newState;
-			this._currentState.enter(args);
+			this._currentState.enter(transitionPath, args);
 			
-			if (transitionPath.length > 1)
+			if (targetPath.length > 1)
 			{
-				return this._currentState.handleTransition(transitionPath.slice(1), args);
+				return this._currentState.handleTransition(transitionPath, targetPath.slice(1), args);
 			}
 			
 			return true;
 		}
 		else
 		{
-			return this._parent.handleTransition(transitionPath, args);
+			return this._parent.handleTransition(transitionPath, targetPath, args);
 		}
 	}
 		
@@ -87,6 +87,6 @@ export class StateMachine
 		var oldState = this._currentState;
 		var exitArgs = this._currentState.exit(args);
 				
-		this.handleTransitions(transition.execute(args), exitArgs || args);
+		this.handleTransitions(transitionPath, transition.execute(args), exitArgs || args);
 	}
 }

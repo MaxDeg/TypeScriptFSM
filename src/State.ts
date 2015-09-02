@@ -13,7 +13,7 @@ export class State
 {
 	private _parent: StateMachine;
 	private _name: string;
-	private _onEnter: (args: any[]) => void; // never null || Could return a transition to execute (!!!promise!!!)
+	private _onEnter: (transitionName: string, args: any[]) => void; // never null || Could return a transition to execute (!!!promise!!!)
 	private _onExit: (args: any[]) => any[]; // never null
 	private _transitions: Transition[];
 	private _regions: { [key: string]: StateMachine }
@@ -26,7 +26,9 @@ export class State
 		this._parent = parent;
 		this._name = name;
 		
-		this._onEnter = options.onEnter ? (args: any[]) => options.onEnter.apply(this, args) : (args: any[]) => {};
+		this._onEnter = options.onEnter ? 
+							(transitionName: string, args: any[]) => options.onEnter.apply(this, [transitionName].concat(args)) : 
+							(transitionName: string, args: any[]) => {};
 		this._onExit = options.onExit ? (args: any[]) => options.onExit.apply(this, args) : (args: any[]) => args;
 		
 		this._transitions = new Array();
@@ -70,9 +72,9 @@ export class State
 		}
 	}
 	
-	public enter(args: any[])
+	public enter(transitionPath: string[], args: any[])
 	{
-		this._onEnter(args);
+		this._onEnter((transitionPath || []).join(":"), args);
 		
 		// enter in regions
 		for (var region in this._regions)
@@ -86,30 +88,27 @@ export class State
 		return this._onExit(args);
 	}
 	
-	public handleTransitions(transitionsPath: string[][], args: any[])
-	{
-		var parentTransitions: string[][] = new Array();
-		var regionTransitions: { [key: string]: string[][] } = {};
-		
-		for (var transitionPath of transitionsPath) // should be length == 1 if parent Machine
+	public handleTransitions(transitionPath: string[], targetsPath: string[][], args: any[])
+	{		
+		for (var targetPath of targetsPath) // should be length == 1 if parent Machine
 		{
-			this.handleTransition(transitionPath, args);
+			this.handleTransition(transitionPath, targetPath, args);
 		}
 	}
 	
-	public handleTransition(transitionPath: string[], args: any[]): boolean
+	public handleTransition(transitionPath: string[], targetPath: string[], args: any[]): boolean
 	{		
-		if (transitionPath.length == 1)
+		if (targetPath.length == 1)
 		{
-			return this._parent.handleTransition(transitionPath, args);
+			return this._parent.handleTransition(transitionPath, targetPath, args);
 		}
 		else
 		{
 			// look in regions
-			var region = this._regions[transitionPath[0]];
+			var region = this._regions[targetPath[0]];
 			if (region)
 			{
-				return region.handleTransition(transitionPath, args);
+				return region.handleTransition(transitionPath, targetPath, args);
 			}
 			
 			return false;
